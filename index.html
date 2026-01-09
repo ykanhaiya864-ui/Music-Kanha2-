@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#1DB954">
+    <link rel="manifest" href="manifest.json">
+    <title>प्रो म्यूजिक प्लेयर</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center; }
+        .player { background: #1e1e1e; width: 100%; max-width: 400px; padding: 20px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; box-sizing: border-box; }
+        
+        /* सर्च बार स्टाइल */
+        .search-box { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 10px; border: none; background: #333; color: white; box-sizing: border-box; outline: none; }
+        .search-box:focus { border: 1px solid #1DB954; }
+
+        .visual { width: 120px; height: 120px; background: linear-gradient(45deg, #1db954, #191414); margin: 0 auto 15px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; border: 4px solid #333; }
+        
+        #title { margin: 10px 0 5px; font-size: 1.2rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        
+        .playlist-container { max-height: 200px; overflow-y: auto; margin-top: 15px; text-align: left; background: #181818; border-radius: 10px; }
+        .song-item { padding: 10px; border-bottom: 1px solid #282828; cursor: pointer; transition: 0.2s; font-size: 0.9rem; }
+        .song-item:hover { background: #282828; color: #1DB954; }
+        .active-song { color: #1DB954; font-weight: bold; }
+
+        input[type="range"] { width: 100%; accent-color: #1DB954; margin: 15px 0; }
+        .controls { display: flex; justify-content: space-around; align-items: center; margin: 10px 0; }
+        button { background: none; border: none; color: white; font-size: 28px; cursor: pointer; }
+        .play-btn { background: #1DB954; color: black; width: 55px; height: 55px; border-radius: 50%; font-size: 24px; }
+        
+        .file-label { display: inline-block; background: #333; padding: 10px 20px; border-radius: 20px; margin-top: 15px; cursor: pointer; font-size: 0.8rem; }
+        #filePicker { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="player">
+    <input type="text" id="searchBar" class="search-box" placeholder="गाना ढूंढें..." onkeyup="filterSongs()">
+    
+    <div class="visual">🎵</div>
+    <h2 id="title">गाना लोड करें</h2>
+    
+    <input type="range" id="progress" value="0" step="1">
+    
+    <div class="controls">
+        <button onclick="prev()">⏮</button>
+        <button class="play-btn" id="playPause" onclick="toggle()">▶</button>
+        <button onclick="next()">⏭</button>
+    </div>
+
+    <label class="file-label" for="filePicker">📁 गाने सेलेक्ट करें</label>
+    <input type="file" id="filePicker" multiple accept="audio/*">
+
+    <div class="playlist-container" id="playlist">
+        </div>
+</div>
+
+<script>
+    let allSongs = []; // असली फाइलें
+    let filteredSongs = []; // सर्च के बाद वाली लिस्ट
+    let currentIndex = 0;
+    const audio = new Audio();
+    const playBtn = document.getElementById('playPause');
+    const progress = document.getElementById('progress');
+    const playlistDiv = document.getElementById('playlist');
+
+    // गानों को लोड और डिस्प्ले करना
+    document.getElementById('filePicker').addEventListener('change', function(e) {
+        allSongs = Array.from(e.target.files);
+        filteredSongs = [...allSongs];
+        renderPlaylist(filteredSongs);
+        if(allSongs.length > 0) playSong(0);
+    });
+
+    function renderPlaylist(songsToDisplay) {
+        playlistDiv.innerHTML = '';
+        songsToDisplay.forEach((file, index) => {
+            const div = document.createElement('div');
+            div.className = 'song-item';
+            if(file === allSongs[currentIndex]) div.classList.add('active-song');
+            div.innerText = file.name.replace(/\.[^/.]+$/, "");
+            div.onclick = () => {
+                const originalIndex = allSongs.indexOf(file);
+                playSong(originalIndex);
+            };
+            playlistDiv.appendChild(div);
+        });
+    }
+
+    // सर्च फंक्शन
+    function filterSongs() {
+        const term = document.getElementById('searchBar').value.toLowerCase();
+        filteredSongs = allSongs.filter(file => 
+            file.name.toLowerCase().includes(term)
+        );
+        renderPlaylist(filteredSongs);
+    }
+
+    function playSong(index) {
+        currentIndex = index;
+        const file = allSongs[index];
+        document.getElementById('title').innerText = file.name.replace(/\.[^/.]+$/, "");
+        audio.src = URL.createObjectURL(file);
+        audio.play();
+        playBtn.innerText = "⏸";
+        renderPlaylist(filteredSongs); // हाईलाइट अपडेट करने के लिए
+    }
+
+    function toggle() {
+        if(audio.src) {
+            if(audio.paused) { audio.play(); playBtn.innerText = "⏸"; }
+            else { audio.pause(); playBtn.innerText = "▶"; }
+        }
+    }
+
+    audio.ontimeupdate = () => {
+        if(!isNaN(audio.duration)) {
+            progress.max = audio.duration;
+            progress.value = audio.currentTime;
+        }
+    };
+
+    progress.oninput = () => { audio.currentTime = progress.value; };
+
+    function next() {
+        if(currentIndex < allSongs.length - 1) playSong(currentIndex + 1);
+    }
+
+    function prev() {
+        if(currentIndex > 0) playSong(currentIndex - 1);
+    }
+
+    // गाना खत्म होने पर अगला खुद चले
+    audio.onended = () => next();
+
+    if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js'); }
+</script>
+</body>
+</html>
+
